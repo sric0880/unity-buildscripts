@@ -1,0 +1,3 @@
+## ./unitybuild.sh -c android-test --version-name 1.0.0 --version-code 1 --unity-project /Users/qiong/Documents/hub/unity-framework --resources /Users/qiong/Documents/hub/unity-framework-resources -b master --output ./output
+./unitybuild.sh -c ios-test,ios-test2 --version-name 1.0.0 --version-code 2 --unity-project /Users/qiong/Documents/hub/unity-framework --resources /Users/qiong/Documents/hub/unity-framework-resources -b master --output ./output
+## ./unitybuild.sh -c windows-test --version-name 1.0.0 --version-code 3 --unity-project /Users/qiong/Documents/hub/unity-framework --resources /Users/qiong/Documents/hub/unity-framework-resources -b master --output ./output
