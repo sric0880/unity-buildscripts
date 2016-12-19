@@ -87,13 +87,14 @@ function printUnityLogError()
 ## build xcode project to Payload/
 function xcodeBuild()
 {
+	current_path=`pwd`
 	if [ ! -d $1 ]; then logError "$1 folder not exists"; exit 1; fi
 	cd $1
 
 	sdk_root=`/usr/bin/xcodebuild -sdk -version | grep "^Path.*iPhoneOS.platform" | grep -o "/.*"`
 	/usr/bin/xcodebuild -target Unity-iPhone -configuration Release clean build CONFIGURATION_BUILD_DIR=../Payload CODE_SIGN_RESOURCE_RULES_PATH="$sdk_root/ResourceRules.plist" PRODUCT_NAME=$PRODUCT_NAME DEPLOYMENT_POSTPROCESSING=YES DEBUG_INFORMATION_FORMAT=$DEBUG_INFORMATION_FORMAT DEVELOPMENT_TEAM="$TEAM_ID"
 	if (($?)); then exit 1; fi
-	cd ..
+	cd $current_path
 }
 function copyCommonResources()
 {

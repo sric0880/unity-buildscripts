@@ -19,8 +19,6 @@ GIT_REV=''
 SVN_REV=''
 RELEASE=false
 OUTPUT=''
-PREBUILD=''
-POSTBUILD=''
 ###################################################################################
 function usage()
 {
@@ -40,8 +38,6 @@ echo -e "The following options are available:
 --git-rev\t\toptional, use the target git revision to build, default the latest revision
 --svn-rev\t\toptional, use the target svn revision to build, default the latest revision
 -r, --release\t\toptional, unity build with release mode, without development mode. default false 
---prebuild\t\toptional, [prebuild.sh] excute this shell before unity build
---postbuild\t\toptional, [postbuild.sh] excute this shell after unity build
 "
 exit 0
 }
@@ -88,12 +84,6 @@ do
 				-r|--release)
 						RELEASE=true
             shift;;
-				--prebuild)
-						PREBUILD=$2
-            shift 2;;
-				--postbuild)
-						POSTBUILD=$2
-            shift 2;;
         --)
 						shift; break;;
         *)
@@ -127,9 +117,13 @@ for p in ${!PLATFORM_PREFIX[@]}; do
 		else
 			args="Dev=True;Path=$target_build_path"
 		fi
-		# Unity -batchmode -nographics -quit -logFile $build_log_file -projectPath $UNITY_PROJECT -executeMethod Build.${PLATFORM_BUILD_METHOD[$p]} -CustomArgs $args
-		# if (($?)); then printUnityLogError $build_log_file; exit 1; fi
-		# if [ $p == 'ios' ]; then xcodeBuild $target_build_path; fi  ### ios needs to build xcode project to produce .app
+		Unity -batchmode -nographics -quit -logFile $build_log_file -projectPath $UNITY_PROJECT -executeMethod Build.${PLATFORM_BUILD_METHOD[$p]} -CustomArgs $args
+		if (($?)); then
+			logError "Error excute unity build method at platform $p."
+			printUnityLogError $build_log_file
+			exit 1
+		fi
+		if [ $p == 'ios' ]; then xcodeBuild $target_build_path; fi  ### ios needs to build xcode project to produce .app
 	fi
 done
 ###################################################################################

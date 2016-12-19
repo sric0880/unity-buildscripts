@@ -14,17 +14,30 @@ if [ ! -d $OUTPUT ]; then
 	if (($?)); then exit 1; fi
 fi
 ##1. unzip apk
+if [ -d $UNZIP_FOLDER ]; then
+	rm -rf $UNZIP_FOLDER
+fi
 java -jar $ANDROID_TOOLS/apktool.jar d -o $UNZIP_FOLDER $SOURCE_APK_FILE
 if (($?)); then exit 1; fi
 
+##2. change version name and version code
+echo "Change version name to $VERSION_NAME"
+sed -i '.bak' "s/versionName: '[0-9.]*'/versionName: '${VERSION_NAME}'/" $UNZIP_FOLDER/apktool.yml
+echo "Change version code to $VERSION_CODE"
+sed -i '.bak' "s/versionCode: '[0-9]*'/versionCode: '${VERSION_CODE}'/" $UNZIP_FOLDER/apktool.yml
+rm $UNZIP_FOLDER/apktool.yml.bak
+
 ##2. copy resources
+echo "Copy common resources"
 copyCommonResources $RESOURCES $UNZIP_FOLDER/assets
+echo "Copy android resources"
 copyAndroidResources $RESOURCES $UNZIP_FOLDER/assets
 
 ####
-##custom pack 
-python onesdk.py $UNZIP_FOLDER $CHANNEL_NAME $
-
+##onesdk workflow
+echo "Pack onesdk"
+onesdk $CHANNEL_NAME android $UNZIP_FOLDER ../unity-onesdk/app.conf ../unity-onesdk/onesdk.conf ../unity-onesdk/sdks
+if (($?)); then exit 1; fi
 ####
 
 ##3. zip apk
@@ -43,3 +56,7 @@ else
 	rm $UNSIGNED_APK_FILE
 	mv $SIGNED_APK_FILE $OUTPUT
 fi
+
+##5. post process
+./post-process.sh android $OUTPUT $SIGNED_APK_FILE
+if (($?)); then exit 1; fi

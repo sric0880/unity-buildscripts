@@ -28,18 +28,20 @@ cp -R build/Payload $WORKING_HOME_DIR
 rm -rf $WORKING_HOME/${PRODUCT_NAME}.app/_CodeSignature
 cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
 
-echo change bundle version name to $VERSION_NAME
+echo "change bundle version name to $VERSION_NAME"
 plutil -replace CFBundleVersion -string $VERSION_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
-echo change short bundle version code to $VERSION_CODE
+echo "change short bundle version code to $VERSION_CODE"
 plutil -replace CFBundleShortVersionString -string $VERSION_CODE $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 # plutil -replace CFBundleDisplayName -string $APP_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 # plutil -replace CFBundleIdentifier -string $BUNDLE_ID $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 
 ## Copy resources
+echo "Copy common resources"
 copyCommonResources $RESOURCES $WORKING_HOME/Raw
+echo "Copy ios resources"
 copyIOSResources $RESOURCES $WORKING_HOME/Raw
 
-echo start codesign
+echo "start codesign"
 /usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app
 if (($?)); then logError "codesign error"; exit 1; fi
 /usr/bin/codesign -vv -d $WORKING_HOME/${PRODUCT_NAME}.app
@@ -47,14 +49,20 @@ if (($?)); then logError "codesign error"; exit 1; fi
 /usr/bin/codesign --verify $WORKING_HOME/${PRODUCT_NAME}.app
 if (($?)); then logError "codesign error"; exit 1; fi
 
-echo move dSYM to $OUTPUT
+echo 'move dSYM to $OUTPUT'
 mv $WORKING_HOME/${PRODUCT_NAME}.app.dSYM $WORKING_HOME/${IOS_FILENAME}.app.dSYM
 if [ -d $OUTPUT/${IOS_FILENAME}.app.dSYM ]; then
 	rm -rf $OUTPUT/${IOS_FILENAME}.app.dSYM
 fi
 mv $WORKING_HOME/${IOS_FILENAME}.app.dSYM $OUTPUT
-echo start zip
+echo "start zip"
 zip -r ${IOS_FILENAME}.ipa $WORKING_HOME -q
 rm -rf $WORKING_HOME
 mv ${IOS_FILENAME}.ipa $OUTPUT
 rm -r $WORKING_HOME_DIR
+
+##post process
+./post-process.sh ios $OUTPUT ${IOS_FILENAME}.ipa
+if (($?)); then exit 1; fi
+./post-process.sh ios $OUTPUT ${IOS_FILENAME}.app.dSYM
+if (($?)); then exit 1; fi
