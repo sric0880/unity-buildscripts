@@ -6,4 +6,9 @@ unity build command tools for android, ios, windows, macOSX
 ./unitybuild.sh -h/--help
 ```
 
-not fully tested.
+# Links
+[unity-onesdk](https://github.com/sric0880/unity-onesdk)
+[unity-framework](https://github.com/sric0880/unity-framework)
+
+# TODO
+ 1. not fully tested.
