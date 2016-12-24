@@ -2,9 +2,10 @@
 XCODE_PROJECT=$1
 RESOURCES=$2
 CHANNEL_NAME=$3
-OUTPUT=$4/ios
+OUTPUT=$4
 VERSION_NAME=$5
 VERSION_CODE=$6
+getPayloadFolderName $XCODE_PROJECT
 IOS_FILENAME=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
 WORKING_HOME_DIR=build/${IOS_FILENAME}_ios
 WORKING_HOME=$WORKING_HOME_DIR/Payload
@@ -24,7 +25,8 @@ if [ ! -f $ENTITLEMENTS_FILE ]; then
 	/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $PROVISION_FILE) > $ENTITLEMENTS_FILE
 	if (($?)); then logError "could not generate $ENTITLEMENTS_FILE"; exit 1; fi
 fi
-cp -R build/Payload $WORKING_HOME_DIR
+cp -R build/$PayloadFolderName $WORKING_HOME_DIR
+mv $WORKING_HOME_DIR/$PayloadFolderName $WORKING_HOME
 rm -rf $WORKING_HOME/${PRODUCT_NAME}.app/_CodeSignature
 cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
 
@@ -37,9 +39,9 @@ plutil -replace CFBundleShortVersionString -string $VERSION_CODE $WORKING_HOME/$
 
 ## Copy resources
 echo "Copy common resources"
-copyCommonResources $RESOURCES $WORKING_HOME/Raw
+copyCommonResources $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw
 echo "Copy ios resources"
-copyIOSResources $RESOURCES $WORKING_HOME/Raw
+copyIOSResources $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw
 
 echo "start codesign"
 /usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app
@@ -49,16 +51,19 @@ if (($?)); then logError "codesign error"; exit 1; fi
 /usr/bin/codesign --verify $WORKING_HOME/${PRODUCT_NAME}.app
 if (($?)); then logError "codesign error"; exit 1; fi
 
-echo 'move dSYM to $OUTPUT'
+echo "move dSYM to ${OUTPUT}"
 mv $WORKING_HOME/${PRODUCT_NAME}.app.dSYM $WORKING_HOME/${IOS_FILENAME}.app.dSYM
 if [ -d $OUTPUT/${IOS_FILENAME}.app.dSYM ]; then
 	rm -rf $OUTPUT/${IOS_FILENAME}.app.dSYM
 fi
 mv $WORKING_HOME/${IOS_FILENAME}.app.dSYM $OUTPUT
 echo "start zip"
-zip -r ${IOS_FILENAME}.ipa $WORKING_HOME -q
+current_pwd=`pwd`
+cd $WORKING_HOME_DIR
+zip -r ${IOS_FILENAME}.ipa Payload -q
+cd $current_pwd
+mv $WORKING_HOME_DIR/${IOS_FILENAME}.ipa $OUTPUT
 rm -rf $WORKING_HOME
-mv ${IOS_FILENAME}.ipa $OUTPUT
 rm -r $WORKING_HOME_DIR
 
 ##post process
