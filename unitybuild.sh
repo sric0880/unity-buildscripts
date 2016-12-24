@@ -116,7 +116,7 @@ if isGitRepo; then
 		currentGitBranch
 	else
 		echo "pull ${BRANCH}"
-		# gitPull $BRANCH
+		gitPull $BRANCH
 	fi
 	if [ -z $GIT_REV ]; then
 		GIT_REV=$CURRENT_GITREV
@@ -139,7 +139,7 @@ cd $currrent_pwd
 # SVN
 cd $RESOURCES
 if isSvnRepo; then
-	# svnCheckoutBranch $BRANCH
+	svnCheckoutBranch $BRANCH
 	currentSvnRev
 	if [ -z $SVN_REV ]; then
 		SVN_REV=$CURRENT_SVNREV
