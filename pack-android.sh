@@ -28,10 +28,12 @@ sed -i '.bak' "s/versionCode: '[0-9]*'/versionCode: '${VERSION_CODE}'/" $UNZIP_F
 rm $UNZIP_FOLDER/apktool.yml.bak
 
 ##2. copy resources
+resources_root=$UNZIP_FOLDER/assets
 echo "Copy common resources"
-copyCommonResources $RESOURCES $UNZIP_FOLDER/assets
+copyCommonResources $RESOURCES $resources_root
 echo "Copy android resources"
-copyAndroidResources $RESOURCES $UNZIP_FOLDER/assets
+copyAndroidResources $RESOURCES $resources_root
+./resources-postprocess.sh android $resources_root
 
 ####
 ##onesdk workflow

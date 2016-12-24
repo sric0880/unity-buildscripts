@@ -21,10 +21,12 @@ MAIN_APP=`sed -e "s/\(.*\)\/\(\.*\)/\2/" <<< ${MAIN_APP}`
 MAIN_APP=${WORKING_HOME_DIR}/$MAIN_APP
 
 ## Copy resources
+resources_root=$MAIN_APP/Contents/Resources/Data/StreamingAssets
 echo "Copy common resources"
-copyCommonResources $RESOURCES $MAIN_APP/Contents/Resources/Data/StreamingAssets
+copyCommonResources $RESOURCES $resources_root
 echo "Copy Mac resources"
-copyMacResources $RESOURCES $MAIN_APP/Contents/Resources/Data/StreamingAssets
+copyMacResources $RESOURCES $resources_root
+./resources-postprocess.sh mac $resources_root
 
 if [ -d $OUTPUT/${FILENAME}_mac ]; then rm -rf $OUTPUT/${FILENAME}_mac; fi
 mv $WORKING_HOME_DIR $OUTPUT

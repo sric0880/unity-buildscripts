@@ -23,10 +23,12 @@ Data_Folder=`sed -e "s/\(.*\)\/\(\.*\)/\2/" <<< ${Data_Folder}`
 Data_Folder=${WORKING_HOME_DIR}/$Data_Folder
 
 ## Copy resources
+resources_root=$Data_Folder/StreamingAssets
 echo "Copy common resources"
-copyCommonResources $RESOURCES $Data_Folder/StreamingAssets
+copyCommonResources $RESOURCES $resources_root
 echo "Copy Windows resources"
-copyWindowsResources $RESOURCES $Data_Folder/StreamingAssets
+copyWindowsResources $RESOURCES $resources_root
+./resources-postprocess.sh windows $resources_root
 
 if [ -d $OUTPUT/${FILENAME}_windows ]; then rm -rf $OUTPUT/${FILENAME}_windows; fi
 mv $WORKING_HOME_DIR $OUTPUT
