@@ -1,0 +1,25 @@
+# resources update to server
+common:
+ files:
+  - config
+  - bootlocale
+  - bootconfig
+ ignore:
+  - .DS_Store
+  - config/QCAR
+android:
+ files:
+  - Android
+ ignore:
+ios:
+ files:
+  - iOS
+ ignore:
+windows:
+ files:
+  - StandaloneWindows
+ ignore:
+mac:
+ files:
+  - StandaloneOSXIntel64
+ ignore:

@@ -27,13 +27,8 @@ echo "Change version code to $VERSION_CODE"
 sed -i '.bak' "s/versionCode: '[0-9]*'/versionCode: '${VERSION_CODE}'/" $UNZIP_FOLDER/apktool.yml
 rm $UNZIP_FOLDER/apktool.yml.bak
 
-##2. copy resources
-resources_root=$UNZIP_FOLDER/assets
-echo "Copy common resources"
-copyCommonResources $RESOURCES $resources_root
-echo "Copy android resources"
-copyAndroidResources $RESOURCES $resources_root
-./resources-postprocess.sh android $resources_root
+##2. resources
+resourcesBuild android $RESOURCES $UNZIP_FOLDER/assets $CHANNEL_NAME
 
 ####
 ##onesdk workflow

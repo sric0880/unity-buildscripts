@@ -37,13 +37,8 @@ plutil -replace CFBundleShortVersionString -string $VERSION_CODE $WORKING_HOME/$
 # plutil -replace CFBundleDisplayName -string $APP_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 # plutil -replace CFBundleIdentifier -string $BUNDLE_ID $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 
-## Copy resources
-resources_root=$WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw
-echo "Copy common resources"
-copyCommonResources $RESOURCES $resources_root
-echo "Copy ios resources"
-copyIOSResources $RESOURCES $resources_root
-./resources-postprocess.sh ios $resources_root
+## resources
+resourcesBuild ios $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw $CHANNEL_NAME
 
 echo "start codesign"
 /usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app

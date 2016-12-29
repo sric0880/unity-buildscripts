@@ -1,0 +1,26 @@
+# resources copy to package
+common:
+ files:
+  - config
+  - bootconfig
+  - bootlocale
+  - app.metadata
+ ignore:
+  - .DS_Store
+  - config/QCAR
+android:
+ files:
+  - Android
+ ignore:
+ios:
+ files:
+  - iOS
+ ignore:
+windows:
+ files:
+  - StandaloneWindows
+ ignore:
+mac:
+ files:
+  - StandaloneOSXIntel64
+ ignore:

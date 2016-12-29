@@ -22,13 +22,8 @@ cp -R $Data_Folder $WORKING_HOME_DIR
 Data_Folder=`sed -e "s/\(.*\)\/\(\.*\)/\2/" <<< ${Data_Folder}`
 Data_Folder=${WORKING_HOME_DIR}/$Data_Folder
 
-## Copy resources
-resources_root=$Data_Folder/StreamingAssets
-echo "Copy common resources"
-copyCommonResources $RESOURCES $resources_root
-echo "Copy Windows resources"
-copyWindowsResources $RESOURCES $resources_root
-./resources-postprocess.sh windows $resources_root
+## resources
+resourcesBuild windows $RESOURCES $Data_Folder/StreamingAssets $CHANNEL_NAME
 
 if [ -d $OUTPUT/${FILENAME}_windows ]; then rm -rf $OUTPUT/${FILENAME}_windows; fi
 mv $WORKING_HOME_DIR $OUTPUT

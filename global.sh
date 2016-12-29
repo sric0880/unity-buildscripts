@@ -101,53 +101,21 @@ function xcodeBuild()
 	if (($?)); then exit 1; fi
 	cd $current_path
 }
-function copyCommonResources()
+
+## if don't need a package, call this function manually for 
+## uploading hotfix resources
+function resourcesBuild()
 {
-	if [ ! -d $2 ]; then
-		mkdir $2
-	fi
-	COMMON_FOLDERS=( "config" "lua" "bootconfig" $APP_METADATA )
-	for f in ${COMMON_FOLDERS[@]}; do
-		cp -R $1/$f $2
-	done
-}
-function copyAndroidResources()
-{
-	if [ ! -d $2 ]; then
-		mkdir $2
-	fi
-	ANDROID_FOLDERS=( "Android" )
-	for f in ${ANDROID_FOLDERS[@]}; do
-		cp -R $1/$f $2
-	done
-}
-function copyIOSResources()
-{
-	if [ ! -d $2 ]; then
-		mkdir $2
-	fi
-	IOS_FOLDERS=( "iOS" )
-	for f in ${IOS_FOLDERS[@]}; do
-		cp -R $1/$f $2
-	done
-}
-function copyWindowsResources()
-{
-	if [ ! -d $2 ]; then
-		mkdir $2
-	fi
-	IOS_FOLDERS=( "StandaloneWindows" )
-	for f in ${IOS_FOLDERS[@]}; do
-		cp -R $1/$f $2
-	done
-}
-function copyMacResources()
-{
-	if [ ! -d $2 ]; then
-		mkdir $2
-	fi
-	IOS_FOLDERS=( "StandaloneOSXIntel64" )
-	for f in ${IOS_FOLDERS[@]}; do
-		cp -R $1/$f $2
-	done
+	# $1 for platform
+	# $2 for source resources
+	# $3 for target resources
+	# $4 for channelName
+	log "resources copy start"
+	./resources-copy.py $1 $2 $3
+	log "resources postprocess start"
+	./resources-postprocess.sh $1 $3
+	log "resources list gen start"
+	./resources-list-gen.py $1 $2 $3
+	log "resources list upload start"
+	./resources-list-upload.py $1 $2 $3 $4
 }

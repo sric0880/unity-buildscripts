@@ -1,5 +1,5 @@
 # unity-buildscripts
-unity build command tools for android, ios, windows, macOSX
+Unity build command tools for android, ios, windows, macOSX. Support hot-fix by generating resources list and upload to server.
 
 # Usage
 ```
@@ -10,7 +10,7 @@ unity build command tools for android, ios, windows, macOSX
 * [unity-onesdk](https://github.com/sric0880/unity-onesdk)
 * [unity-framework](https://github.com/sric0880/unity-framework)
 
-# TODO
+# TODO List
  1. not fully tested.
  2. onesdk for iOS.
- 3. windows and macOSX not tested.
+ 3. number of multi-thread should be limited.
