@@ -1,12 +1,9 @@
 # resources update to server
 common:
  files:
-  - config
-  - bootlocale
-  - bootconfig
+# add your folders and files here
  ignore:
   - .DS_Store
-  - config/QCAR
 android:
  files:
   - Android

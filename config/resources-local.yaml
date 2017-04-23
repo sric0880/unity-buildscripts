@@ -1,13 +1,11 @@
 # resources copy to package
 common:
  files:
-  - config
-  - bootconfig
-  - bootlocale
+  # add your folders or files here
+  # don't remove app.metadata
   - app.metadata
  ignore:
   - .DS_Store
-  - config/QCAR
 android:
  files:
   - Android

@@ -1,0 +1,742 @@
+#####################################
+# --------- sric0880 ----------------
+# --------- 2016/11/26 --------------
+#####################################
+## checkout the bash version
+function checkBashVersion()
+{
+	if [[ $BASH_VERSION =~ ^4.*$ ]]; then
+		echo "Bash version $BASH_VERSION is OK"
+	else
+		echo "Bash version $BASH_VERSION is too old"
+		echo "Update bash..."
+		brew install bash
+		# Add the new shell to the list of allowed shells
+		sudo bash -c 'echo /usr/local/bin/bash >> /etc/shells'
+		# Change to the new shell
+		chsh -s /usr/local/bin/bash
+		echo "Restart terminal.app (new window works too)"
+		exit 0
+	fi
+}
+# Black       0;30     Dark Gray     1;30
+# Blue        0;34     Light Blue    1;34
+# Green       0;32     Light Green   1;32
+# Cyan        0;36     Light Cyan    1;36
+# Red         0;31     Light Red     1;31
+# Purple      0;35     Light Purple  1;35
+# Brown       0;33     Yellow        1;33
+# Light Gray  0;37     White         1;37
+# background colors, the num is 40 to 47
+function logError()
+{
+	echo "--------------------------------------------------"
+	echo -e "\e[1;31mError:\e[0m $1"
+	echo "--------------------------------------------------"
+}
+function logWarning()
+{
+	echo "--------------------------------------------------"
+	echo -e "\e[1;33mWarning:\e[0m $1"
+	echo "--------------------------------------------------"
+}
+function log()
+{
+	echo "--------------------------------------------------"
+	echo -e "\e[1;32mLog:\e[0m $1"
+	echo "--------------------------------------------------"
+}
+function parseChannels()
+{
+	channels=("${!1}")
+	for channel in ${channels[@]}; do
+		if [[ $channel =~ ^(..*)-(..*)$ ]]; then
+			p=${BASH_REMATCH[1]}
+			flag=${PLATFORM_PREFIX[$p]}
+			if [ -z $flag ]; then
+				logError "Unsupport platform '$p'"
+				exit 1
+			fi
+			PLATFORM=$(($PLATFORM|$flag))
+		else
+			logError "channel '${channel}' doesn't format {platform}-{channelName}, see usage:"
+			usage
+		fi
+	done
+}
+## return 0 if not has then return above 0
+function hasPlatform()
+{
+	[[ $(($PLATFORM&${PLATFORM_PREFIX[$1]})) -gt 0 ]] && return 0 || return 1
+}
+function commandInstalled()
+{
+	if ! type $1 &> /dev/null; then
+		logError "command $1 not installed, install and set PATH."
+		exit 1
+	fi
+}
+function gnugetopt()
+{
+	commandInstalled getopt
+	o=`getopt -T`
+	if (( $? != 4 )) && [[ -n $o ]]; then
+		logError "not GNU getopt, BSD getopt cannot parse long options"
+		echo "please do: brew install gnu-getopt, then set getopt to PATH"
+		exit 1
+	fi
+}
+## build xcode project to Payload/
+function getPayloadFolderName()
+{
+	PayloadFolderName=`sed -e "s/\([a-zA-Z\/_-]*\)\(\.*[0-9a-zA-Z]*\)/Payload\2/" <<< ${1}`
+	# log "Payload folder name is ${PayloadFolderName}"
+}
+function xcodeBuild()
+{
+	current_path=`pwd`
+	if [ ! -d $1 ]; then logError "$1 folder not exists"; exit 1; fi
+	cd $1
+
+	sdk_root=`/usr/bin/xcodebuild -sdk -version | grep "^Path.*iPhoneOS.platform" | grep -o "/.*"`
+	/usr/bin/xcodebuild -target Unity-iPhone -configuration Release clean build CONFIGURATION_BUILD_DIR=../$PayloadFolderName CODE_SIGN_RESOURCE_RULES_PATH="$sdk_root/ResourceRules.plist" PRODUCT_NAME=$PRODUCT_NAME DEPLOYMENT_POSTPROCESSING=YES DEBUG_INFORMATION_FORMAT=$DEBUG_INFORMATION_FORMAT DEVELOPMENT_TEAM="$TEAM_ID"
+	if (($?)); then exit 1; fi
+	cd $current_path
+}
+
+checkBashVersion
+commandInstalled Unity
+gnugetopt
+
+## support platform config 
+export PLATFORM=0
+declare -A PLATFORM_PREFIX
+PLATFORM_PREFIX=( ["ios"]=1 ["android"]=2 ['windows']=4 ['mac']=8 )
+declare -A PLATFORM_BUILD_METHOD
+PLATFORM_BUILD_METHOD=( ["ios"]="BuildiOSPlayer" ["android"]="BuildAndroidPlayer" ["windows"]="BuildWindowsPlayer" ["mac"]="BuildMacPlayer")
+declare -A PLATFORM_BUILD_FILENAME
+PLATFORM_BUILD_FILENAME=( ["ios"]="xcode_project" ["android"]="client.apk" ["windows"]="gamePc/main.exe" ["mac"]="gameMac/main.app" )
+
+export APKTOOL_PATH=/usr/local/apktool
+export PayloadFolderName="Payload"
+export APP_METADATA="app.metadata"
+###################################################################################
+function pack-windows()
+{
+	MAIN_EXE=$1
+	RESOURCES=$2
+	CHANNEL_NAME=$3
+	OUTPUT=$4
+	VERSION_NAME=$5
+	VERSION_CODE=$6
+	FILENAME=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
+	WORKING_HOME_DIR=build/${FILENAME}_windows
+	if [ ! -d $WORKING_HOME_DIR ]; then
+		mkdir -p $WORKING_HOME_DIR
+		if (($?)); then exit 1; fi
+	fi
+	if [ ! -d $OUTPUT ]; then
+		mkdir -p $OUTPUT
+		if (($?)); then exit 1; fi
+	fi
+
+	cp $MAIN_EXE $WORKING_HOME_DIR
+	Data_Folder=`sed -e "s/\(.*\)\(\.exe\)/\1_Data/" <<< ${MAIN_EXE}`
+	cp -R $Data_Folder $WORKING_HOME_DIR
+	Data_Folder=`sed -e "s/\(.*\)\/\(\.*\)/\2/" <<< ${Data_Folder}`
+	Data_Folder=${WORKING_HOME_DIR}/$Data_Folder
+
+	## resources
+	resources_workflow windows $RESOURCES $Data_Folder/StreamingAssets $CHANNEL_NAME
+	if (($?)); then exit 1; fi
+
+	if [ -d $OUTPUT/${FILENAME}_windows ]; then rm -rf $OUTPUT/${FILENAME}_windows; fi
+	mv $WORKING_HOME_DIR $OUTPUT
+	rm -rf $WORKING_HOME_DIR
+
+	##post process
+	postprocess windows $OUTPUT $FILENAME
+	if (($?)); then exit 1; fi
+}
+###################################################################################
+function pack-mac()
+{
+	MAIN_APP=$1
+	RESOURCES=$2
+	CHANNEL_NAME=$3
+	OUTPUT=$4
+	VERSION_NAME=$5
+	VERSION_CODE=$6
+	FILENAME=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
+	WORKING_HOME_DIR=build/${FILENAME}_mac
+	if [ ! -d $WORKING_HOME_DIR ]; then
+		mkdir -p $WORKING_HOME_DIR
+		if (($?)); then exit 1; fi
+	fi
+	if [ ! -d $OUTPUT ]; then
+		mkdir -p $OUTPUT
+		if (($?)); then exit 1; fi
+	fi
+
+	cp -R $MAIN_APP $WORKING_HOME_DIR
+	MAIN_APP=`sed -e "s/\(.*\)\/\(\.*\)/\2/" <<< ${MAIN_APP}`
+	MAIN_APP=${WORKING_HOME_DIR}/$MAIN_APP
+
+	## resources
+	resources_workflow mac $RESOURCES $MAIN_APP/Contents/Resources/Data/StreamingAssets $CHANNEL_NAME
+	if (($?)); then exit 1; fi
+
+	if [ -d $OUTPUT/${FILENAME}_mac ]; then rm -rf $OUTPUT/${FILENAME}_mac; fi
+	mv $WORKING_HOME_DIR $OUTPUT
+	rm -rf $WORKING_HOME_DIR
+
+	##post process
+	postprocess mac $OUTPUT $FILENAME
+	if (($?)); then exit 1; fi
+}
+###################################################################################
+function pack-ios()
+{
+	XCODE_PROJECT=$1
+	RESOURCES=$2
+	CHANNEL_NAME=$3
+	OUTPUT=$4
+	VERSION_NAME=$5
+	VERSION_CODE=$6
+	IOS_FILENAME=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
+	WORKING_HOME_DIR=build/${IOS_FILENAME}_ios
+	WORKING_HOME=$WORKING_HOME_DIR/Payload
+	if [ ! -d $WORKING_HOME_DIR ]; then
+		mkdir -p $WORKING_HOME_DIR
+		if (($?)); then exit 1; fi
+	fi
+	if [ ! -d $OUTPUT ]; then
+		mkdir -p $OUTPUT
+		if (($?)); then exit 1; fi
+	fi
+	if [ ! -f $PROVISION_FILE ]; then
+		logError "$PROVISION_FILE not exists!"
+	fi
+
+	PROVISION_FILE=$UNITY_PROJECT/autobuild/ios/embedded.mobileprovision
+	ENTITLEMENTS_FILE=$UNITY_PROJECT/autobuild/ios/entitlements.plist
+
+	if [ ! -f $ENTITLEMENTS_FILE ]; then
+		log "generate entitlements.plist"
+		/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $PROVISION_FILE) > $ENTITLEMENTS_FILE
+		if (($?)); then logError "could not generate $ENTITLEMENTS_FILE"; exit 1; fi
+	fi
+	cp -R build/$PayloadFolderName $WORKING_HOME_DIR
+	mv $WORKING_HOME_DIR/$PayloadFolderName $WORKING_HOME
+	rm -rf $WORKING_HOME/${PRODUCT_NAME}.app/_CodeSignature
+	cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
+
+	echo "change bundle version name to $VERSION_NAME"
+	plutil -replace CFBundleVersion -string $VERSION_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
+	echo "change short bundle version code to $VERSION_CODE"
+	plutil -replace CFBundleShortVersionString -string $VERSION_CODE $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
+	# plutil -replace CFBundleDisplayName -string $APP_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
+	# plutil -replace CFBundleIdentifier -string $BUNDLE_ID $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
+
+	## resources
+	resources_workflow ios $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw $CHANNEL_NAME
+	if (($?)); then exit 1; fi
+
+	echo "start codesign"
+	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app
+	if (($?)); then logError "codesign error"; exit 1; fi
+	/usr/bin/codesign -vv -d $WORKING_HOME/${PRODUCT_NAME}.app
+	if (($?)); then logError "codesign error"; exit 1; fi
+	/usr/bin/codesign --verify $WORKING_HOME/${PRODUCT_NAME}.app
+	if (($?)); then logError "codesign error"; exit 1; fi
+
+	echo "move dSYM to ${OUTPUT}"
+	mv $WORKING_HOME/${PRODUCT_NAME}.app.dSYM $WORKING_HOME/${IOS_FILENAME}.app.dSYM
+	if [ -d $OUTPUT/${IOS_FILENAME}.app.dSYM ]; then
+		rm -rf $OUTPUT/${IOS_FILENAME}.app.dSYM
+	fi
+	mv $WORKING_HOME/${IOS_FILENAME}.app.dSYM $OUTPUT
+	echo "start zip"
+	current_pwd=`pwd`
+	cd $WORKING_HOME_DIR
+	zip -r ${IOS_FILENAME}.ipa Payload -q
+	cd $current_pwd
+	mv $WORKING_HOME_DIR/${IOS_FILENAME}.ipa $OUTPUT
+	rm -rf $WORKING_HOME
+	rm -r $WORKING_HOME_DIR
+
+	##post process
+	postprocess ios $OUTPUT ${IOS_FILENAME}.ipa
+	if (($?)); then exit 1; fi
+	postprocess ios $OUTPUT ${IOS_FILENAME}.app.dSYM
+	if (($?)); then exit 1; fi
+}
+###################################################################################
+function pack-android()
+{
+	SOURCE_APK_FILE=$1
+	RESOURCES=$2
+	CHANNEL_NAME=$3
+	OUTPUT=$4
+	VERSION_NAME=$5
+	VERSION_CODE=$6
+	TARGET_APK_FILE=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
+	SIGNED_APK_FILE=build/${TARGET_APK_FILE}.apk
+	UNSIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned.apk
+	UNZIP_FOLDER=build/$TARGET_APK_FILE
+	if [ ! -d $OUTPUT ]; then
+		mkdir -p $OUTPUT;
+		if (($?)); then exit 1; fi
+	fi
+	##1. unzip apk
+	if [ -d $UNZIP_FOLDER ]; then
+		rm -rf $UNZIP_FOLDER
+	fi
+	java -jar $APKTOOL_PATH/apktool.jar d -o $UNZIP_FOLDER $SOURCE_APK_FILE
+	if (($?)); then exit 1; fi
+
+	##2. change version name and version code
+	echo "Change version name to $VERSION_NAME"
+	sed -i '.bak' "s/versionName: '[0-9.]*'/versionName: '${VERSION_NAME}'/" $UNZIP_FOLDER/apktool.yml
+	echo "Change version code to $VERSION_CODE"
+	sed -i '.bak' "s/versionCode: '[0-9]*'/versionCode: '${VERSION_CODE}'/" $UNZIP_FOLDER/apktool.yml
+	rm $UNZIP_FOLDER/apktool.yml.bak
+
+	##2. resources
+	resources_workflow android $RESOURCES $UNZIP_FOLDER/assets $CHANNEL_NAME
+	if (($?)); then exit 1; fi
+
+	####
+	##onesdk workflow
+	echo "Pack onesdk"
+	onesdk $CHANNEL_NAME android $UNZIP_FOLDER
+	if (($?)); then exit 1; fi
+	####
+
+	##3. zip apk
+	java -jar $APKTOOL_PATH/apktool.jar b -o $UNSIGNED_APK_FILE $UNZIP_FOLDER
+	if (($?)); then
+		exit 1
+	else
+		rm -rf $UNZIP_FOLDER
+	fi
+
+	##4. sign apk
+	KEYSTORE_FILE=$UNITY_PROJECT/autobuild/android/keystore
+	PASSWORD_FILE=$UNITY_PROJECT/autobuild/android/pwd
+	jarsigner -verbose -digestalg SHA1 -sigalg MD5withRSA -keystore $KEYSTORE_FILE -storepass:file $PASSWORD_FILE -signedjar $SIGNED_APK_FILE $UNSIGNED_APK_FILE $ALIAS
+	if (($?)); then
+		exit 1
+	else
+		rm $UNSIGNED_APK_FILE
+		mv $SIGNED_APK_FILE $OUTPUT
+	fi
+
+	##5. post process
+	postprocess android $OUTPUT $SIGNED_APK_FILE
+	if (($?)); then exit 1; fi
+}
+###################################################################################
+function postprocess()
+{
+	PLATFORM=$1
+	OUTPUT=$2
+	FILE=$3
+
+	current_path=`pwd`
+	cd $OUTPUT
+
+	####################################
+	## Custom settings
+
+	## svn commit
+	# svnCommitFile $FILE "Auto build"
+	# if (($?)); then exit 1; fi
+
+	## or rsync to another server for downloading
+	# rsync -avzr --progress --exclude ".DS_Store" $OUTPUT/ 127.0.0.1:/$prefix/$OUTPUT
+
+	## End custom settings
+	###################################
+
+	cd $current_path
+}
+###################################################################################
+## Not used any more, use resources_workflow
+function resourcesPostprocess()
+{
+	PLATFORM=$1
+	RESOURCES_ROOT=$2
+
+	# perl -pi -e "s/(?<=[(branches)|(ffyd)]\/)\w*(?=\/)/${Branch}/g" $Update
+
+	# echo 'enable use external autoupdate'
+	# perl -pi -e 's/<use_home_update_urls>.*<\/use_home_update_urls>/<use_home_update_urls>false<\/use_home_update_urls>/g' $Update
+
+	# if [ $Update == 'on' ]; then
+	# 	echo AutoUpdate On
+	# 	perl -pi -e 's/<auto_update_res>.*<\/auto_update_res>/<auto_update_res>true<\/auto_update_res>/g' $Boot
+	# elif [ $Update == 'off' ]; then
+	# 	echo AutoUpdate Off
+	# 	perl -pi -e 's/<auto_update_res>.*<\/auto_update_res>/<auto_update_res>false<\/auto_update_res>/g' $Boot
+	# else
+	# 	echo Do nothing
+	# fi
+
+	# if [ $Switch == 'on' ]; then
+	#         echo Console On
+	#         perl -pi -e 's/<show_console>\d/<show_console>1/g' $Systemconst
+	# elif [ $Switch == 'off' ]; then
+	#         echo Console Off
+	#         perl -pi -e 's/<show_console>\d/<show_console>0/g' $Systemconst
+	# else
+	#         echo Do nothing
+	# fi
+
+	# sed -i '.bck' "s/<locale>.*<\/locale>/<locale>${Locale}<\/locale>/" $Boot
+	# rm ${Boot}.bck
+}
+###################################################################################
+CHANNELS=()
+VERSION_NAME=''
+VERSION_CODE=''
+UNITY_PROJECT=''
+RESOURCES=''
+BRANCH=''
+GIT_REV=''
+SVN_REV=''
+RELEASE=false
+OUTPUT=''
+###################################################################################
+function usage()
+{
+echo -e "The following options are available:
+-h, --help\t\toptional, 显示帮助并退出
+-c, --channels\t\t[ios-inhouse,ios-laohu,android-baidu,android-360,windows-ff,...]
+\t\t\tSDK channel names seperated by ',' with the format of {platform}-{channelName}
+--version-name\t\t[1.1.0] {main}.{major}.{minor}
+--version-code\t\t[1001] build number
+--unity-project\t\tpath of the target unity project, managed by git
+--resources\t\tpath of the game resources, managed by svn
+-b, --branch\t\tgit and svn branch, both have the same name
+-o, --output\t\toutput path for final build package
+--git-rev\t\toptional, use the target git revision to build, default the latest revision
+--svn-rev\t\toptional, use the target svn revision to build, default the latest revision
+-r, --release\t\toptional, unity build with release mode, without development mode. default false 
+"
+exit 0
+}
+args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,resources:,branch:,output:,git-rev:,svn-rev:,release,prebuild:,postbuild: -n 'unitybuild' -- $*`
+if (($?)); then exit -1; fi
+set -- $args
+
+while true 
+do
+    case "$1" in
+        -h|--help) 
+						usage
+            shift;;
+        -c|--channels)
+            CHANNELS=(${2//,/ })
+            shift 2;;
+        --version-name)
+						VERSION_NAME=$2
+            shift 2;;
+        --version-code)
+						VERSION_CODE=$2
+            shift 2;;
+				--unity-project)
+						UNITY_PROJECT=$2
+            shift 2;;
+				--resources)
+						RESOURCES=$2
+            shift 2;;
+				-b|--branch)
+						BRANCH=$2
+            shift 2;;
+        -o|--output)
+						OUTPUT=$2
+            shift 2;;
+				--git-rev)
+						GIT_REV=$2
+            shift 2;;
+				--svn-rev)
+						SVN_REV=$2
+            shift 2;;
+				-r|--release)
+						RELEASE=true
+            shift;;
+        --)
+						shift; break;;
+        *)
+						usage
+            ;;
+    esac
+done
+if [ ${#CHANNELS[@]} -eq 0 ]; then logError "need -c,--channels option";  usage; fi
+parseChannels CHANNELS[@]
+if [ -z $VERSION_NAME ]; then logError "need --version-name option"; usage; fi
+if [[ ! $VERSION_NAME =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then logError "version-name format wrong"; usage; fi
+if [ -z $VERSION_CODE ]; then logError "need --version-code option"; usage; fi
+if [[ ! $VERSION_CODE =~ ^[0-9]+$ ]]; then logError "version-code format wrong"; usage; fi
+if [ -z $UNITY_PROJECT ]; then logError "need --unity-project option"; usage; fi
+if [ ! -d $UNITY_PROJECT ]; then logError "$UNITY_PROJECT not exists"; exit 1; fi
+if [ -z $RESOURCES ]; then logError "need --resources option"; usage; fi
+if [ ! -d $RESOURCES ]; then logError "$RESOURCES not exists"; exit 1; fi
+if [ -z $BRANCH ]; then logError "need -b,--branch option"; usage; fi
+if [ -z $OUTPUT ]; then logError "need -o,--output option"; usage; fi
+if [ ! -d $OUTPUT ]; then mkdir -p $OUTPUT; fi
+if [ ! -d $OUTPUT ]; then logError "create output path $OUTPUT failed"; exit 1; fi
+###################################################################################
+
+temp_build_folder=`pwd`/build
+if [ ! -d $temp_build_folder ]; then mkdir $temp_build_folder; fi
+
+export UNITY_PROJECT=$UNITY_PROJECT
+if [ ! -f $UNITY_PROJECT/autobuild/conf.sh ]; then logError "no autobuild/conf.sh exists in $UNITY_PROJECT"; exit 1; fi
+source $UNITY_PROJECT/autobuild/conf.sh
+###################################################################################
+CURRENT_GITREV=''
+CURRENT_GITBRANCH=''
+
+# Check project is git repo or not, YES return 0 or return 1
+function isGitRepo()
+{
+	gitrepo=`pwd`
+	if [ -d .git ] || git rev-parse --git-dir > /dev/null 2>&1; then
+		return 0
+	else
+		logWarning "${gitrepo} is not git repo."
+		return 1
+	fi
+}
+
+# Get current git revision
+function currentGitRev()
+{
+	CURRENT_GITREV=$(git rev-parse HEAD)
+	log "current git revision is ${CURRENT_GITREV}"
+}
+
+function currentGitBranch()
+{
+	CURRENT_GITBRANCH=$(git rev-parse --abbrev-ref HEAD)
+	log "current git branch is ${CURRENT_GITBRANCH}"
+}
+
+# update to latest revision
+function gitPull()
+{
+	echo "git fetch origin ${1}"
+	git fetch origin $1
+	if (($?)); then exit 1; fi
+	reslog=$(git log HEAD..origin/$1 --oneline)
+	if [ ! -z "${reslog}" ]; then
+		echo "Need to pull: ${reslog}"
+		echo "git clean -df"
+		git clean -df
+		echo "git reset --hard HEAD"
+		git reset --hard HEAD
+		echo "git merge origin/${1}"
+		git merge origin/$1
+		if (($?)); then exit 1; fi
+	else
+		echo "Not need to pull, git is the latest"
+	fi
+}
+
+function gitNewBranch()
+{
+	echo "git branch -d ${1}"
+	git branch -d $1
+	echo "git push origin --delete ${1}"
+	git push origin --delete $1
+	echo "git branch ${1}"
+	git branch $1
+	echo "git push origin ${1}"
+	git push origin $1
+}
+
+function gitCheckoutBranch()
+{
+	echo "git clean -df"
+	git clean -df
+	echo "git reset --hard HEAD"
+	git reset --hard HEAD
+	echo "git fetch origin ${1}"
+	git fetch origin $1
+	if (($?)); then exit 1; fi
+	echo "git checkout ${1}"
+	git checkout $1
+	if (($?)); then exit 1; fi
+	echo "git merge origin/${1}"
+	git merge origin/$1
+	if (($?)); then exit 1; fi
+}
+
+#Change git rev to target rev
+function changeGitRev()
+{
+	#Check the target rev exist or not
+	if git cat-file -e $1; then
+		log "${1} exists, reset --hard to it"
+		git reset --hard $1
+	else
+		logError "${1} not exists"
+		exit 1
+	fi
+}
+###################################################################################
+
+function svnCommitFile()
+{
+	svn add --parents --force $1
+	if (($?)); then exit 1; fi
+	svn ci -m "${2}"
+	if (($?)); then exit 1; fi
+}
+
+function isSvnRepo()
+{
+	svnrepo=`pwd`
+	if [ -d .svn ]; then
+		return 0
+	else
+		logWarning "${svnrepo} is not svn repo."
+		return 1
+	fi
+}
+
+CURRENT_SVNREV=''
+function currentSvnRev()
+{
+	CURRENT_SVNREV=`svn info | grep "Last Changed Rev"| sed -e "s/Last Changed Rev: \(.*\)/\1/"`
+	log "current svn revision is ${CURRENT_SVNREV}"
+}
+
+function changeSvnRev()
+{
+	echo "svn update -r ${1}"
+	svn update -r $1
+	if (($?)); then exit 1; fi
+}
+
+function svnNewBranch()
+{
+	svn_root_url=$(svn info | sed -n 's/^Repository Root: //p')
+	echo "svn rm -m "" ${svn_root_url}/branches/${2}"
+	svn rm -m "" ${svn_root_url}/branches/${2}
+	echo "svn copy -m "" ${svn_root_url}/${1} ${svn_root_url}/branches/${2}"
+	svn copy -m "new branch from ${1}" ${svn_root_url}/${1} ${svn_root_url}/branches/${2}
+	if (($?)); then exit 1; fi
+}
+
+function svnCheckoutBranch()
+{
+	svn_root_url=$(svn info | sed -n 's/^Repository Root: //p')
+	echo "svn switch ${svn_root_url}/branches/${1}"
+	svn switch ${svn_root_url}/branches/${1} --accept tf
+	if (($?)); then exit 1; fi
+	svn info
+}
+###################################################################################
+
+currrent_pwd=`pwd`
+# Git
+cd $UNITY_PROJECT
+if isGitRepo; then
+	currentGitRev
+	currentGitBranch
+	if [ $BRANCH != $CURRENT_GITBRANCH ]; then
+		gitCheckoutBranch $BRANCH
+		currentGitBranch
+	else
+		echo "pull ${BRANCH}"
+		gitPull $BRANCH
+	fi
+	if [ -z $GIT_REV ]; then
+		GIT_REV=$CURRENT_GITREV
+	fi
+	if [[ "${CURRENT_GITREV}" != "${GIT_REV}"* ]]; then
+		echo "change git rev"
+		changeGitRev $GIT_REV
+		currentGitRev
+	fi
+	GIT_REV=$CURRENT_GITREV
+	for p in ${!PLATFORM_PREFIX[@]}; do
+		newBuildName=`sed -e "s/\([a-zA-Z\/_]*\)\(\.*[a-zA-Z]*\)/\1.${GIT_REV}\2/" <<< ${PLATFORM_BUILD_FILENAME[$p]}`
+		PLATFORM_BUILD_FILENAME[$p]=$newBuildName
+	done
+else
+	logError "${UNITY_PROJECT} must be git repo"
+	exit 1
+fi
+cd $currrent_pwd
+# SVN
+cd $RESOURCES
+if isSvnRepo; then
+	svnCheckoutBranch $BRANCH
+	currentSvnRev
+	if [ -z $SVN_REV ]; then
+		SVN_REV=$CURRENT_SVNREV
+	fi
+	if [ ${SVN_REV} != ${CURRENT_SVNREV} ]; then
+		echo "change svn rev"
+		changeSvnRev $SVN_REV
+		currentSvnRev
+	fi
+else
+	logError "${RESOURCES} must be svn repo"
+	exit 1
+fi
+echo "${GIT_REV},${SVN_REV}" > $APP_METADATA
+cd $currrent_pwd
+
+###################################################################################
+for p in ${!PLATFORM_PREFIX[@]}; do
+	if hasPlatform $p; then
+		target_build_path=${temp_build_folder}/${PLATFORM_BUILD_FILENAME[$p]}
+		if [ -d $target_build_path -o -f $target_build_path ]; then
+			log "Target build of ${GIT_REV} already exists for platform ${p}."
+		else
+			if $RELEASE; then
+				args="Dev=False;Path=$target_build_path"
+			else
+				args="Dev=True;Path=$target_build_path"
+			fi
+			Unity -batchmode -nographics -quit -logFile -projectPath $UNITY_PROJECT -executeMethod Build.${PLATFORM_BUILD_METHOD[$p]} -CustomArgs $args
+			if (($?)); then
+				logError "Error excute unity build method at platform $p."
+				exit 1
+			fi
+		fi
+		### ios needs to build xcode project to produce .app
+		if [ $p == 'ios' ]; then
+			getPayloadFolderName $target_build_path
+			if [ -d ${temp_build_folder}/${PayloadFolderName} ]; then
+				log "Target payload already exists."
+			else
+				xcodeBuild $target_build_path
+			fi
+		fi
+	fi
+done
+
+###################################################################################
+for channel in ${CHANNELS[@]}; do
+	{
+		if [[ $channel =~ ^(..*)-(..*)$ ]]; then
+			p=${BASH_REMATCH[1]}
+			channelName=${BASH_REMATCH[2]}
+			log "pid $BASHPID : start pack $p with channel $channelName"
+			pack-$p ${temp_build_folder}/${PLATFORM_BUILD_FILENAME[$p]} $RESOURCES $channelName $OUTPUT/$p/$BRANCH $VERSION_NAME $VERSION_CODE
+		fi
+	} &
+done
+
+for pid in $(jobs -p); do
+	wait $pid
+	if (($?)); then
+		logError "pid $pid : pack failed"
+	fi
+done
