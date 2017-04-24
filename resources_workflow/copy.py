@@ -4,9 +4,7 @@
 import yaml, sys, os, shutil
 from os import path
 
-confResourcesLocal  = '/usr/local/unitybuild/resources-local.yaml'
-
-def copy(platform, source, target):
+def copy(confResourcesLocal, platform, source, target):
 
 	'''copy resources from source to package target'''
 

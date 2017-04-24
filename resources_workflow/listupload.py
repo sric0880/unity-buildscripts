@@ -9,9 +9,7 @@ import time
 import ResourcesUtils
 from os import path
 
-confReourcesUpload = '/usr/local/unitybuild/resources-hotfix-server.yaml'
-
-def listupload(platform, source, target, channelName):
+def listupload(confReourcesUpload, platform, source, target, channelName):
 
 	'''generate resources list file for hotfix'''
 

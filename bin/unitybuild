@@ -147,7 +147,7 @@ function pack-windows()
 	Data_Folder=${WORKING_HOME_DIR}/$Data_Folder
 
 	## resources
-	resources_workflow windows $RESOURCES $Data_Folder/StreamingAssets $CHANNEL_NAME
+	resources_workflow windows $RESOURCES $Data_Folder/StreamingAssets $CHANNEL_NAME $UNITY_PROJECT
 	if (($?)); then exit 1; fi
 
 	if [ -d $OUTPUT/${FILENAME}_windows ]; then rm -rf $OUTPUT/${FILENAME}_windows; fi
@@ -183,7 +183,7 @@ function pack-mac()
 	MAIN_APP=${WORKING_HOME_DIR}/$MAIN_APP
 
 	## resources
-	resources_workflow mac $RESOURCES $MAIN_APP/Contents/Resources/Data/StreamingAssets $CHANNEL_NAME
+	resources_workflow mac $RESOURCES $MAIN_APP/Contents/Resources/Data/StreamingAssets $CHANNEL_NAME $UNITY_PROJECT
 	if (($?)); then exit 1; fi
 
 	if [ -d $OUTPUT/${FILENAME}_mac ]; then rm -rf $OUTPUT/${FILENAME}_mac; fi
@@ -239,7 +239,7 @@ function pack-ios()
 	# plutil -replace CFBundleIdentifier -string $BUNDLE_ID $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
 
 	## resources
-	resources_workflow ios $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw $CHANNEL_NAME
+	resources_workflow ios $RESOURCES $WORKING_HOME/${PRODUCT_NAME}.app/Data/Raw $CHANNEL_NAME $UNITY_PROJECT
 	if (($?)); then exit 1; fi
 
 	echo "start codesign"
@@ -303,7 +303,7 @@ function pack-android()
 	rm $UNZIP_FOLDER/apktool.yml.bak
 
 	##2. resources
-	resources_workflow android $RESOURCES $UNZIP_FOLDER/assets $CHANNEL_NAME
+	resources_workflow android $RESOURCES $UNZIP_FOLDER/assets $CHANNEL_NAME $UNITY_PROJECT
 	if (($?)); then exit 1; fi
 
 	####
@@ -417,7 +417,6 @@ echo -e "The following options are available:
 --version-name\t\t[1.1.0] {main}.{major}.{minor}
 --version-code\t\t[1001] build number
 --unity-project\t\tpath of the target unity project, managed by git
---resources\t\tpath of the game resources, managed by svn
 -b, --branch\t\tgit and svn branch, both have the same name
 -o, --output\t\toutput path for final build package
 --git-rev\t\toptional, use the target git revision to build, default the latest revision
@@ -426,7 +425,7 @@ echo -e "The following options are available:
 "
 exit 0
 }
-args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,resources:,branch:,output:,git-rev:,svn-rev:,release,prebuild:,postbuild: -n 'unitybuild' -- $*`
+args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,prebuild:,postbuild: -n 'unitybuild' -- $*`
 if (($?)); then exit -1; fi
 set -- $args
 
@@ -447,9 +446,6 @@ do
             shift 2;;
 				--unity-project)
 						UNITY_PROJECT=$2
-            shift 2;;
-				--resources)
-						RESOURCES=$2
             shift 2;;
 				-b|--branch)
 						BRANCH=$2
@@ -481,20 +477,21 @@ if [ -z $VERSION_CODE ]; then logError "need --version-code option"; usage; fi
 if [[ ! $VERSION_CODE =~ ^[0-9]+$ ]]; then logError "version-code format wrong"; usage; fi
 if [ -z $UNITY_PROJECT ]; then logError "need --unity-project option"; usage; fi
 if [ ! -d $UNITY_PROJECT ]; then logError "$UNITY_PROJECT not exists"; exit 1; fi
-if [ -z $RESOURCES ]; then logError "need --resources option"; usage; fi
-if [ ! -d $RESOURCES ]; then logError "$RESOURCES not exists"; exit 1; fi
 if [ -z $BRANCH ]; then logError "need -b,--branch option"; usage; fi
 if [ -z $OUTPUT ]; then logError "need -o,--output option"; usage; fi
 if [ ! -d $OUTPUT ]; then mkdir -p $OUTPUT; fi
 if [ ! -d $OUTPUT ]; then logError "create output path $OUTPUT failed"; exit 1; fi
 ###################################################################################
 
+RESOURCES=$UNITY_PROJECT/../resources
+if [ ! -d $RESOURCES ]; then logError "$RESOURCES not exists"; exit 1; fi
+
 temp_build_folder=`pwd`/build
 if [ ! -d $temp_build_folder ]; then mkdir $temp_build_folder; fi
 
 export UNITY_PROJECT=$UNITY_PROJECT
-if [ ! -f $UNITY_PROJECT/autobuild/conf.sh ]; then logError "no autobuild/conf.sh exists in $UNITY_PROJECT"; exit 1; fi
-source $UNITY_PROJECT/autobuild/conf.sh
+if [ ! -f $UNITY_PROJECT/autobuild/config ]; then logError "no autobuild/config exists in $UNITY_PROJECT"; exit 1; fi
+source $UNITY_PROJECT/autobuild/config
 ###################################################################################
 CURRENT_GITREV=''
 CURRENT_GITBRANCH=''

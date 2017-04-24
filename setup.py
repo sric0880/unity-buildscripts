@@ -12,10 +12,5 @@ setup(name='unitybuild',
       author_email='justgotpaid88@qq.com',
       license='MIT',
       packages=['resources_workflow'],
-      data_files=[('/usr/local/unitybuild', [
-            'config/resources-hotfix-server.yaml',
-            'config/resources-local.yaml',
-            'config/resources-update.yaml'
-            ]), ('/usr/local/apktool', [
-            'bin/apktool.jar'])],
+      data_files=[('/usr/local/apktool', ['bin/apktool.jar'])],
       zip_safe=False)

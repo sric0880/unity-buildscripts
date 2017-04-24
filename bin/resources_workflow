@@ -6,6 +6,7 @@
 
 import argparse
 import sys
+from os import path
 from resources_workflow import copy
 from resources_workflow import listgen
 from resources_workflow import listupload
@@ -15,14 +16,19 @@ parser.add_argument('platform', help='平台名称', choices=['ios', 'android', 
 parser.add_argument('source', help='源资源文件夹根目录')
 parser.add_argument('target', help='目标包资源文件夹目录')
 parser.add_argument('channelName', help='渠道名称')
+parser.add_argument('unity_project_path', help='unity工程目录')
 args = parser.parse_args()
 
+HOTFIX_SERVER_CONFIG = path.join(args.unity_project_path, 'autobuild/resources-hotfix-server.yaml')
+RES_LOCAL_CONFIG = path.join(args.unity_project_path, 'autobuild/resources-local.yaml')
+RES_UPDATE_CONFIG = path.join(args.unity_project_path, 'autobuild/resources-update.yaml')
+
 print("resources copy start")
-copy(args.platform, args.source, args.target)
+copy(RES_LOCAL_CONFIG, args.platform, args.source, args.target)
 print("resources postprocess start")
 ## TODO: 
 
 print("resources list gen start")
-listgen(args.platform, args.source, args.target)
+listgen(RES_UPDATE_CONFIG, args.platform, args.source, args.target)
 print("resources list upload start")
-listupload(args.platform, args.source, args.target, args.channelName)
+listupload(HOTFIX_SERVER_CONFIG, args.platform, args.source, args.target, args.channelName)

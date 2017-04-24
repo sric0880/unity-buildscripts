@@ -3,9 +3,7 @@
 import yaml, os, hashlib
 from os import path
 
-confResourcesUpdate = '/usr/local/unitybuild/resources-update.yaml'
-
-def listgen(platform, source, target):
+def listgen(confResourcesUpdate, platform, source, target):
 	'''generate resources list file for hotfix'''
 
 	configUpdate = None
