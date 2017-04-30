@@ -1,6 +1,11 @@
 # unity-buildscripts
 Unity build command tools for android, ios, windows, macOSX. Support hot-fix by generating resources list and upload to server.
 
+## OS Requirements
+Mac OS is fully supported.
+
+if you're windows user, see this: [how-to-install-and-use-the-linux-bash-shell-on-windows-10](https://www.howtogeek.com/249966/how-to-install-and-use-the-linux-bash-shell-on-windows-10/)
+
 # Install
 ```sh
 sudo pip install .
@@ -28,6 +33,14 @@ unitybuild -c android-yyb --git-rev 9f08a67 --version-name 1.0.0 --version-code 
 
 
 # Dependency
+* [Unity](https://unity3d.com)
+* Xcode
+* git command tool
+* subversion command tool
+* python 2.7
+* Java env
+* Android SDK
+* Android NDK
 * [unity-onesdk](https://github.com/sric0880/unity-onesdk)
 * [unity-framework](https://github.com/sric0880/unity-framework)
   * Depends on `Assets/Editor/Build.cs`. Add build target scenes to `Build.cs`.
