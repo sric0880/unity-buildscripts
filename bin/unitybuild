@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #####################################
 # --------- sric0880 ----------------
 # --------- 2016/11/26 --------------
@@ -5,6 +6,7 @@
 ## checkout the bash version
 function checkBashVersion()
 {
+	# mac os has bash version 3.x.
 	if [[ $BASH_VERSION =~ ^4.*$ ]]; then
 		echo "Bash version $BASH_VERSION is OK"
 	else
@@ -15,6 +17,9 @@ function checkBashVersion()
 		sudo bash -c 'echo /usr/local/bin/bash >> /etc/shells'
 		# Change to the new shell
 		chsh -s /usr/local/bin/bash
+		sed -i '.bak' '1 i\
+		export PATH=/usr/local/bin:/opt/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		' ~/.bash_profile
 		echo "Restart terminal.app (new window works too)"
 		exit 0
 	fi
