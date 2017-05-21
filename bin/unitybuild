@@ -288,6 +288,7 @@ function pack-android()
 	TARGET_APK_FILE=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
 	SIGNED_APK_FILE=build/${TARGET_APK_FILE}.apk
 	UNSIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned.apk
+	UNSIGNED_ALIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned_aligned.apk
 	UNZIP_FOLDER=build/$TARGET_APK_FILE
 	if [ ! -d $OUTPUT ]; then
 		mkdir -p $OUTPUT;
@@ -327,13 +328,17 @@ function pack-android()
 	fi
 
 	##4. sign apk
-	KEYSTORE_FILE=$UNITY_PROJECT/autobuild/android/keystore
-	PASSWORD_FILE=$UNITY_PROJECT/autobuild/android/pwd
-	jarsigner -verbose -digestalg SHA1 -sigalg MD5withRSA -keystore $KEYSTORE_FILE -storepass:file $PASSWORD_FILE -signedjar $SIGNED_APK_FILE $UNSIGNED_APK_FILE $ALIAS
+	echo "start zipalign"
+	zipalign -v -p 4 $UNSIGNED_APK_FILE $UNSIGNED_ALIGNED_APK_FILE
+	echo "start apksigner"
+	apksigner sign --ks $KEYSTORE_FILE --ks-pass env:KEYSTORE_PWD --ks-key-alias $ALIAS --key-pass env:KEY_PWD --out $SIGNED_APK_FILE $UNSIGNED_ALIGNED_APK_FILE
 	if (($?)); then
 		exit 1
 	else
 		rm $UNSIGNED_APK_FILE
+		rm $UNSIGNED_ALIGNED_APK_FILE
+		apksigner verify -v $SIGNED_APK_FILE
+		if (($?)); then exit 1; fi
 		mv $SIGNED_APK_FILE $OUTPUT
 	fi
 

@@ -40,6 +40,8 @@ unitybuild -c android-yyb --git-rev 9f08a67 --version-name 1.0.0 --version-code 
 * python 2.7
 * Java env
 * Android SDK
+  * `zipalign`
+  * `apksigner` depends on android build tools 24.0.3 and higher.
 * Android NDK
 * [unity-onesdk](https://github.com/sric0880/unity-onesdk)
 * [unity-framework](https://github.com/sric0880/unity-framework)
