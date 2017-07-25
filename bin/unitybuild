@@ -220,12 +220,8 @@ function pack-ios()
 		if (($?)); then exit 1; fi
 	fi
 	if [ ! -f $PROVISION_FILE ]; then
-		logError "$PROVISION_FILE not exists!"
+		logWarning "$PROVISION_FILE not exists!"
 	fi
-
-	PROVISION_FILE=$UNITY_PROJECT/autobuild/ios/embedded.mobileprovision
-	ENTITLEMENTS_FILE=$UNITY_PROJECT/autobuild/ios/entitlements.plist
-
 	if [ ! -f $ENTITLEMENTS_FILE ]; then
 		log "generate entitlements.plist"
 		/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $PROVISION_FILE) > $ENTITLEMENTS_FILE
@@ -234,7 +230,9 @@ function pack-ios()
 	cp -R build/$PayloadFolderName $WORKING_HOME_DIR
 	mv $WORKING_HOME_DIR/$PayloadFolderName $WORKING_HOME
 	rm -rf $WORKING_HOME/${PRODUCT_NAME}.app/_CodeSignature
-	cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
+	if [ -f $PROVISION_FILE ]; then
+		cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
+	fi
 
 	echo "change bundle version name to $VERSION_NAME"
 	plutil -replace CFBundleVersion -string $VERSION_NAME $WORKING_HOME/${PRODUCT_NAME}.app/Info.plist
@@ -343,7 +341,7 @@ function pack-android()
 	fi
 
 	##5. post process
-	postprocess android $OUTPUT $SIGNED_APK_FILE
+	postprocess android $OUTPUT ${TARGET_APK_FILE}.apk
 	if (($?)); then exit 1; fi
 }
 ###################################################################################
@@ -365,6 +363,16 @@ function postprocess()
 
 	## or rsync to another server for downloading
 	# rsync -avzr --progress --exclude ".DS_Store" $OUTPUT/ 127.0.0.1:/$prefix/$OUTPUT
+
+	IPAPK_SERVER_ADDRESS=https://127.0.0.1:1234
+	## or upload to ipapk-server for download
+	if [[ $FILE == *.ipa ]] || [[ $FILE == *.apk ]]; then
+		if [ ! -z $IPAPK_SERVER_ADDRESS ]; then
+			curl "$IPAPK_SERVER_ADDRESS/upload" -F "package=@$FILE" --insecure
+			if (($?)); then exit -1; fi
+			echo " Upload to ipapk-server success"
+		fi
+	fi
 
 	## End custom settings
 	###################################
