@@ -6,7 +6,7 @@ import shutil
 import zipfile
 import yaml
 import time
-import ResourcesUtils
+from resources_workflow import ResourcesUtils
 from os import path
 
 def listupload(confReourcesUpload, platform, source, target, channelName):
@@ -15,7 +15,7 @@ def listupload(confReourcesUpload, platform, source, target, channelName):
 
 	confHotfixServer  = None
 
-	with file(confReourcesUpload, 'r') as stream:
+	with open(confReourcesUpload, 'r') as stream:
 		confHotfixServer = yaml.load(stream)
 
 	if not confHotfixServer:

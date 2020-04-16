@@ -8,7 +8,7 @@ def listgen(confResourcesUpdate, platform, source, target):
 
 	configUpdate = None
 
-	with file(confResourcesUpdate, 'r') as stream:
+	with open(confResourcesUpdate, 'r') as stream:
 		configUpdate = yaml.load(stream)
 
 	if not configUpdate:
@@ -62,7 +62,7 @@ def listgen(confResourcesUpdate, platform, source, target):
 
 	def writeResList(root, Md5List):
 		content = '\n'.join(['%s\n%s\n%s'%(f, value[0], value[1]) for f,value in Md5List.items()])
-		contentMD5 = hashstr(content)
+		contentMD5 = hashstr(content.encode('utf-8'))
 
 		with open(path.join(root, 'reslist.dat'), 'w') as f:
 			f.write(contentMD5)

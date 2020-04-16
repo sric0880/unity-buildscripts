@@ -9,7 +9,7 @@ def copy(confResourcesLocal, platform, source, target):
 	'''copy resources from source to package target'''
 
 	configLocal  = None
-	with file(confResourcesLocal, 'r') as stream:
+	with open(confResourcesLocal, 'r') as stream:
 		configLocal = yaml.load(stream)
 
 	if not configLocal:

@@ -701,8 +701,8 @@ if isSvnRepo; then
 		currentSvnRev
 	fi
 else
-	logError "${RESOURCES} must be svn repo"
-	exit 1
+	# logError "${RESOURCES} must be svn repo"
+	SVN_REV=0
 fi
 echo "${GIT_REV},${SVN_REV}" > $APP_METADATA
 cd $currrent_pwd
