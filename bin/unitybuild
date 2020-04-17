@@ -365,13 +365,14 @@ function postprocess()
 	## or rsync to another server for downloading
 	# rsync -avzr --progress --exclude ".DS_Store" $OUTPUT/ 127.0.0.1:/$prefix/$OUTPUT
 
-	IPAPK_SERVER_ADDRESS=https://127.0.0.1:1234
 	## or upload to ipapk-server for download
 	if [[ $FILE == *.ipa ]] || [[ $FILE == *.apk ]]; then
 		if [ ! -z $IPAPK_SERVER_ADDRESS ]; then
 			curl "$IPAPK_SERVER_ADDRESS/upload" -F "package=@$FILE" --insecure
 			if (($?)); then exit -1; fi
 			echo " Upload to ipapk-server success"
+		else
+			echo " No ipapk-server ip address config"
 		fi
 	fi
 
