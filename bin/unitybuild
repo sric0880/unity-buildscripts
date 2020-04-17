@@ -318,7 +318,8 @@ function pack-android()
 	####
 
 	##3. zip apk
-	java -jar $APKTOOL_PATH/apktool.jar b -o $UNSIGNED_APK_FILE $UNZIP_FOLDER
+	## BUGFIX: -p framework No resource identifier found for attribute 'compileSdkVersion' in package 'android'
+	java -jar $APKTOOL_PATH/apktool.jar b -o $UNSIGNED_APK_FILE -p framework $UNZIP_FOLDER
 	if (($?)); then
 		exit 1
 	else
