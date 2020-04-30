@@ -427,6 +427,7 @@ GIT_REV=''
 SVN_REV=''
 RELEASE=false
 OUTPUT=''
+NO_UNITYBUILD=false
 ###################################################################################
 function usage()
 {
@@ -442,10 +443,11 @@ echo -e "The following options are available:
 --git-rev\t\toptional, use the target git revision to build, default the latest revision
 --svn-rev\t\toptional, use the target svn revision to build, default the latest revision
 -r, --release\t\toptional, unity build with release mode, without development mode. default false 
+--no-unitybuild\t\toptional, not build unity project and use last build result for packaging when set. default false
 "
 exit 0
 }
-args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,prebuild:,postbuild: -n 'unitybuild' -- $*`
+args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild -n 'unitybuild' -- $*`
 if (($?)); then exit -1; fi
 set -- $args
 
@@ -481,6 +483,9 @@ do
             shift 2;;
 				-r|--release)
 						RELEASE=true
+			shift 2;;
+				--no-unitybuild)
+						NO_UNITYBUILD=true
             shift;;
         --)
 						shift; break;;
@@ -680,10 +685,35 @@ if isGitRepo; then
 		currentGitRev
 	fi
 	GIT_REV=$CURRENT_GITREV
-	for p in ${!PLATFORM_PREFIX[@]}; do
-		newBuildName=`sed -e "s/\([a-zA-Z\/_]*\)\(\.*[a-zA-Z]*\)/\1.${GIT_REV}\2/" <<< ${PLATFORM_BUILD_FILENAME[$p]}`
-		PLATFORM_BUILD_FILENAME[$p]=$newBuildName
-	done
+	echo "NO_UNITYBUILD ${NO_UNITYBUILD}"
+	if $NO_UNITYBUILD; then
+		# find last build git rev
+		GITREVLISTSTR=$(git rev-list HEAD -n 50)
+		echo "${GITREVLISTSTR}"
+		GITREVLIST=(${GITREVLISTSTR//\n/ })
+
+		for p in ${!PLATFORM_PREFIX[@]}; do
+			history_rev_found=false
+			for rev in ${GITREVLIST[@]}; do
+				newBuildName=`sed -e "s/\([a-zA-Z\/_]*\)\(\.*[a-zA-Z]*\)/\1.${rev}\2/" <<< ${PLATFORM_BUILD_FILENAME[$p]}`
+				target_build_path=${temp_build_folder}/${newBuildName}
+				if [ -d $target_build_path -o -f $target_build_path ]; then
+					PLATFORM_BUILD_FILENAME[$p]=$newBuildName
+					history_rev_found=true
+					break
+				fi
+			done
+			if ! $history_rev_found; then
+				newBuildName=`sed -e "s/\([a-zA-Z\/_]*\)\(\.*[a-zA-Z]*\)/\1.${GIT_REV}\2/" <<< ${PLATFORM_BUILD_FILENAME[$p]}`
+				PLATFORM_BUILD_FILENAME[$p]=$newBuildName
+			fi
+		done
+	else
+		for p in ${!PLATFORM_PREFIX[@]}; do
+			newBuildName=`sed -e "s/\([a-zA-Z\/_]*\)\(\.*[a-zA-Z]*\)/\1.${GIT_REV}\2/" <<< ${PLATFORM_BUILD_FILENAME[$p]}`
+			PLATFORM_BUILD_FILENAME[$p]=$newBuildName
+		done
+	fi
 else
 	logError "${UNITY_PROJECT} must be git repo"
 	exit 1
@@ -714,7 +744,7 @@ for p in ${!PLATFORM_PREFIX[@]}; do
 	if hasPlatform $p; then
 		target_build_path=${temp_build_folder}/${PLATFORM_BUILD_FILENAME[$p]}
 		if [ -d $target_build_path -o -f $target_build_path ]; then
-			log "Target build of ${GIT_REV} already exists for platform ${p}."
+			log "Target build ${target_build_path} already exists for platform ${p}."
 		else
 			if $RELEASE; then
 				args="Dev=False;Path=$target_build_path"
