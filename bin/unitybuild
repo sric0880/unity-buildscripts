@@ -103,8 +103,8 @@ function xcodeBuild()
 	if [ ! -d $1 ]; then logError "$1 folder not exists"; exit 1; fi
 	cd $1
 
-	sdk_root=`/usr/bin/xcodebuild -sdk -version | grep "^Path.*iPhoneOS.platform" | grep -o "/.*"`
-	/usr/bin/xcodebuild -target Unity-iPhone -configuration Release clean build CONFIGURATION_BUILD_DIR=../$PayloadFolderName CODE_SIGN_RESOURCE_RULES_PATH="$sdk_root/ResourceRules.plist" PRODUCT_NAME=$PRODUCT_NAME DEPLOYMENT_POSTPROCESSING=YES DEBUG_INFORMATION_FORMAT=$DEBUG_INFORMATION_FORMAT DEVELOPMENT_TEAM="$TEAM_ID"
+	# sdk_root=`/usr/bin/xcodebuild -sdk -version | grep "^Path.*iPhoneOS.platform" | grep -o "/.*"`
+	/usr/bin/xcodebuild -target Unity-iPhone -configuration Release clean build CONFIGURATION_BUILD_DIR=../$PayloadFolderName DEPLOYMENT_POSTPROCESSING=YES DEBUG_INFORMATION_FORMAT=$DEBUG_INFORMATION_FORMAT DEVELOPMENT_TEAM="$TEAM_ID"
 	if (($?)); then exit 1; fi
 	cd $current_path
 }
@@ -259,6 +259,9 @@ function pack-ios()
 		rm -rf $OUTPUT/${IOS_FILENAME}.app.dSYM
 	fi
 	mv $WORKING_HOME/${IOS_FILENAME}.app.dSYM $OUTPUT
+	echo "remove unityframework"
+	rm -rf $WORKING_HOME/UnityFramework.framework
+	rm -rf $WORKING_HOME/UnityFramework.framework.dSYM
 	echo "start zip"
 	current_pwd=`pwd`
 	cd $WORKING_HOME_DIR

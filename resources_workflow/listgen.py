@@ -9,7 +9,7 @@ def listgen(confResourcesUpdate, platform, source, target):
 	configUpdate = None
 
 	with open(confResourcesUpdate, 'r') as stream:
-		configUpdate = yaml.load(stream)
+		configUpdate = yaml.safe_load(stream)
 
 	if not configUpdate:
 		print("config file not exists.")

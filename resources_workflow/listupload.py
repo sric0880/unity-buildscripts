@@ -16,7 +16,7 @@ def listupload(confReourcesUpload, platform, source, target, channelName):
 	confHotfixServer  = None
 
 	with open(confReourcesUpload, 'r') as stream:
-		confHotfixServer = yaml.load(stream)
+		confHotfixServer = yaml.safe_load(stream)
 
 	if not confHotfixServer:
 		print("config file not exists.")

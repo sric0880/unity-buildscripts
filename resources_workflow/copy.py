@@ -10,7 +10,7 @@ def copy(confResourcesLocal, platform, source, target):
 
 	configLocal  = None
 	with open(confResourcesLocal, 'r') as stream:
-		configLocal = yaml.load(stream)
+		configLocal = yaml.safe_load(stream)
 
 	if not configLocal:
 		print("config file not exists.")
