@@ -450,7 +450,7 @@ echo -e "The following options are available:
 "
 exit 0
 }
-args=`getopt -u -o hc:b:o:r -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild -n 'unitybuild' -- $*`
+args=`getopt -u -o hc:b:o: -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild -n 'unitybuild' -- $*`
 if (($?)); then exit -1; fi
 set -- $args
 
@@ -464,36 +464,37 @@ do
             CHANNELS=(${2//,/ })
             shift 2;;
         --version-name)
-						VERSION_NAME=$2
+			VERSION_NAME=$2
             shift 2;;
         --version-code)
-						VERSION_CODE=$2
+			VERSION_CODE=$2
             shift 2;;
-				--unity-project)
-						UNITY_PROJECT=$2
+		--unity-project)
+			UNITY_PROJECT=$2
             shift 2;;
-				-b|--branch)
-						BRANCH=$2
+		-b|--branch)
+			BRANCH=$2
             shift 2;;
         -o|--output)
-						OUTPUT=$2
+			OUTPUT=$2
             shift 2;;
-				--git-rev)
-						GIT_REV=$2
+		--git-rev)
+			GIT_REV=$2
             shift 2;;
-				--svn-rev)
-						SVN_REV=$2
+		--svn-rev)
+			SVN_REV=$2
             shift 2;;
-				-r|--release)
-						RELEASE=true
-			shift 2;;
-				--no-unitybuild)
-						NO_UNITYBUILD=true
-            shift;;
+		--release)
+			RELEASE=true
+			shift 1;;
+		--no-unitybuild)
+			NO_UNITYBUILD=true
+            shift 1;;
         --)
-						shift; break;;
+			shift; break;;
         *)
-						usage
+			echo "usage"
+			usage
             ;;
     esac
 done
