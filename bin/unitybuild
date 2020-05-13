@@ -246,6 +246,8 @@ function pack-ios()
 	if (($?)); then exit 1; fi
 
 	echo "start codesign"
+	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app/Frameworks/UnityFramework.framework
+	if (($?)); then logError "codesign error"; exit 1; fi
 	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app
 	if (($?)); then logError "codesign error"; exit 1; fi
 	/usr/bin/codesign -vv -d $WORKING_HOME/${PRODUCT_NAME}.app
