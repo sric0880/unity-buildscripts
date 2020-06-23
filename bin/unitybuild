@@ -211,6 +211,13 @@ function pack-ios()
 	IOS_FILENAME=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
 	WORKING_HOME_DIR=build/${IOS_FILENAME}_ios
 	WORKING_HOME=$WORKING_HOME_DIR/Payload
+	if $PUBLISH_APPSTORE; then
+		PROVISION_FILE_USED=$PROVISION_FILE_FOR_APPSTORE
+		ENTITLEMENTS_FILE_USED=$ENTITLEMENTS_FILE_FOR_APPSTORE
+	else
+		PROVISION_FILE_USED=$PROVISION_FILE
+		ENTITLEMENTS_FILE_USED=$ENTITLEMENTS_FILE
+	fi
 	if [ ! -d $WORKING_HOME_DIR ]; then
 		mkdir -p $WORKING_HOME_DIR
 		if (($?)); then exit 1; fi
@@ -219,19 +226,19 @@ function pack-ios()
 		mkdir -p $OUTPUT
 		if (($?)); then exit 1; fi
 	fi
-	if [ ! -f $PROVISION_FILE ]; then
-		logWarning "$PROVISION_FILE not exists!"
+	if [ ! -f $PROVISION_FILE_USED ]; then
+		logWarning "$PROVISION_FILE_USED not exists!"
 	fi
-	if [ ! -f $ENTITLEMENTS_FILE ]; then
+	if [ ! -f $ENTITLEMENTS_FILE_USED ]; then
 		log "generate entitlements.plist"
-		/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $PROVISION_FILE) > $ENTITLEMENTS_FILE
-		if (($?)); then logError "could not generate $ENTITLEMENTS_FILE"; exit 1; fi
+		/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $PROVISION_FILE_USED) > $ENTITLEMENTS_FILE_USED
+		if (($?)); then logError "could not generate $ENTITLEMENTS_FILE_USED"; exit 1; fi
 	fi
 	cp -R build/$PayloadFolderName $WORKING_HOME_DIR
 	mv $WORKING_HOME_DIR/$PayloadFolderName $WORKING_HOME
 	rm -rf $WORKING_HOME/${PRODUCT_NAME}.app/_CodeSignature
-	if [ -f $PROVISION_FILE ]; then
-		cp $PROVISION_FILE $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
+	if [ -f $PROVISION_FILE_USED ]; then
+		cp $PROVISION_FILE_USED $WORKING_HOME/${PRODUCT_NAME}.app/embedded.mobileprovision
 	fi
 
 	echo "change bundle version name to $VERSION_NAME"
@@ -246,9 +253,9 @@ function pack-ios()
 	if (($?)); then exit 1; fi
 
 	echo "start codesign"
-	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app/Frameworks/UnityFramework.framework
+	/usr/bin/codesign -f -s $IDENTITY $WORKING_HOME/${PRODUCT_NAME}.app/Frameworks/UnityFramework.framework
 	if (($?)); then logError "codesign error"; exit 1; fi
-	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE $WORKING_HOME/${PRODUCT_NAME}.app
+	/usr/bin/codesign -f -s $IDENTITY --entitlements $ENTITLEMENTS_FILE_USED $WORKING_HOME/${PRODUCT_NAME}.app
 	if (($?)); then logError "codesign error"; exit 1; fi
 	/usr/bin/codesign -vv -d $WORKING_HOME/${PRODUCT_NAME}.app
 	if (($?)); then logError "codesign error"; exit 1; fi
@@ -274,10 +281,14 @@ function pack-ios()
 	rm -r $WORKING_HOME_DIR
 
 	##post process
-	postprocess ios $OUTPUT ${IOS_FILENAME}.ipa
-	if (($?)); then exit 1; fi
-	postprocess ios $OUTPUT ${IOS_FILENAME}.app.dSYM
-	if (($?)); then exit 1; fi
+	if $PUBLISH_APPSTORE; then
+		postprocess_uploadto_appstore $OUTPUT ${IOS_FILENAME}.ipa
+	else
+		postprocess ios $OUTPUT ${IOS_FILENAME}.ipa
+		if (($?)); then exit 1; fi
+		postprocess ios $OUTPUT ${IOS_FILENAME}.app.dSYM
+		if (($?)); then exit 1; fi
+	fi
 }
 ###################################################################################
 function pack-android()
@@ -386,6 +397,20 @@ function postprocess()
 
 	cd $current_path
 }
+function postprocess_uploadto_appstore()
+{
+	OUTPUT=$1
+	FILE=$2
+
+	current_path=`pwd`
+	cd $OUTPUT
+
+	xcrun altool --validate-app -f $FILE -t ios -u $APPLE_USERNAME -p $APPLE_PASSWORD
+	if (($?)); then exit -1; fi
+	xcrun altool --upload-app -f $FILE -t ios -u $APPLE_USERNAME -p $APPLE_PASSWORD
+	if (($?)); then exit -1; fi
+	cd $current_path
+}
 ###################################################################################
 ## Not used any more, use resources_workflow
 function resourcesPostprocess()
@@ -433,6 +458,7 @@ SVN_REV=''
 RELEASE=false
 OUTPUT=''
 NO_UNITYBUILD=false
+PUBLISH_APPSTORE=false
 ###################################################################################
 function usage()
 {
@@ -449,10 +475,11 @@ echo -e "The following options are available:
 --svn-rev\t\toptional, use the target svn revision to build, default the latest revision
 -r, --release\t\toptional, unity build with release mode, without development mode. default false 
 --no-unitybuild\t\toptional, not build unity project and use last build result for packaging when set. default false
+--publish-appstore\t\toptional, build ipa and upload to itunes connect
 "
 exit 0
 }
-args=`getopt -u -o hc:b:o: -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild -n 'unitybuild' -- $*`
+args=`getopt -u -o hc:b:o: -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild,publish-appstore -n 'unitybuild' -- $*`
 if (($?)); then exit -1; fi
 set -- $args
 
@@ -491,6 +518,9 @@ do
 			shift 1;;
 		--no-unitybuild)
 			NO_UNITYBUILD=true
+            shift 1;;
+        --publish-appstore)
+			PUBLISH_APPSTORE=true
             shift 1;;
         --)
 			shift; break;;
