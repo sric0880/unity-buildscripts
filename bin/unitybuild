@@ -407,7 +407,7 @@ function postprocess_uploadto_appstore()
 
 	xcrun altool --validate-app -f $FILE -t ios -u $APPLE_USERNAME -p $APPLE_PASSWORD
 	if (($?)); then exit -1; fi
-	xcrun altool --upload-app -f $FILE -t ios -u $APPLE_USERNAME -p $APPLE_PASSWORD
+	echo $SUDO_PASSWORD | sudo -S xcrun altool --upload-app -f $FILE -t ios -u $APPLE_USERNAME -p $APPLE_PASSWORD --verbose
 	if (($?)); then exit -1; fi
 	cd $current_path
 }
