@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='unitybuild',
-      version='1.1',
+      version='1.2',
       scripts= [
             'bin/unitybuild',
             'bin/resources_workflow',
@@ -12,5 +12,5 @@ setup(name='unitybuild',
       author_email='justgotpaid88@qq.com',
       license='MIT',
       packages=['resources_workflow'],
-      data_files=[('/usr/local/apktool', ['bin/apktool.jar'])],
+      data_files=[('/usr/local/unitybuild-tool', ['bin/apktool.jar', 'bin/bundletool-all-1.0.0.jar'])],
       zip_safe=False)

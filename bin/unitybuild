@@ -122,7 +122,7 @@ PLATFORM_BUILD_METHOD=( ["ios"]="BuildiOSPlayer" ["android"]="BuildAndroidPlayer
 declare -A PLATFORM_BUILD_FILENAME
 PLATFORM_BUILD_FILENAME=( ["ios"]="xcode_project" ["android"]="client.apk" ["windows"]="gamePc/main.exe" ["mac"]="gameMac/main.app" )
 
-export APKTOOL_PATH=/usr/local/apktool
+export UNITYBUILD_TOOL_PATH=/usr/local/unitybuild-tool
 export PayloadFolderName="Payload"
 export APP_METADATA="app.metadata"
 ###################################################################################
@@ -302,17 +302,50 @@ function pack-android()
 	TARGET_APK_FILE=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
 	SIGNED_APK_FILE=build/${TARGET_APK_FILE}.apk
 	UNSIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned.apk
+	UNSIGNED_AAB_FILE=build/${TARGET_APK_FILE}_unsigned.aab
 	UNSIGNED_ALIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned_aligned.apk
 	UNZIP_FOLDER=build/$TARGET_APK_FILE
 	if [ ! -d $OUTPUT ]; then
 		mkdir -p $OUTPUT;
 		if (($?)); then exit 1; fi
 	fi
-	##1. unzip apk
+
 	if [ -d $UNZIP_FOLDER ]; then
 		rm -rf $UNZIP_FOLDER
 	fi
-	java -jar $APKTOOL_PATH/apktool.jar d -o $UNZIP_FOLDER $SOURCE_APK_FILE
+
+	if $BUILD_APPBUNDLE; then
+		##1. unzip aab
+		mkdir $UNZIP_FOLDER
+		unzip $SOURCE_APK_FILE -d $UNZIP_FOLDER
+		##2. resources
+		resources_workflow android $RESOURCES $UNZIP_FOLDER/base/assets $CHANNEL_NAME $UNITY_PROJECT
+		if (($?)); then exit 1; fi
+
+		current_path=`pwd`
+		cd $UNZIP_FOLDER/base
+		zip -r -X ../../base.zip .
+		cd $current_path
+		rm -rf $UNZIP_FOLDER
+
+		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-bundle --modules build/base.zip --output $UNSIGNED_AAB_FILE
+		if (($?)); then exit 1; fi
+		rm build/base.zip
+		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar validate --bundle $UNSIGNED_AAB_FILE
+		if (($?)); then exit 1; fi
+
+		# APKS_FILE=${SIGNED_APK_FILE}s
+		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-apks --bundle=$UNSIGNED_AAB_FILE --output=$APKS_FILE --ks $KEYSTORE_FILE --ks-pass pass:$KEYSTORE_PWD --ks-key-alias $ALIAS --key-pass pass:$KEY_PWD
+		# if (($?)); then exit 1; fi
+		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar get-size total --apks=$APKS_FILE
+		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar extract-apks --apks=$APKS_FILE --output-dir=${APKS_FILE}.extract --device-spec=device-spec.json
+		# if (($?)); then exit 1; fi
+		echo "no need to pack android when building app bundle"
+		exit 0
+	fi
+
+	##1. unzip apk
+	java -jar $UNITYBUILD_TOOL_PATH/apktool.jar d -o $UNZIP_FOLDER $SOURCE_APK_FILE
 	if (($?)); then exit 1; fi
 
 	##2. change version name and version code
@@ -335,7 +368,7 @@ function pack-android()
 
 	##3. zip apk
 	## BUGFIX: -p framework No resource identifier found for attribute 'compileSdkVersion' in package 'android'
-	java -jar $APKTOOL_PATH/apktool.jar b -o $UNSIGNED_APK_FILE -p framework $UNZIP_FOLDER
+	java -jar $UNITYBUILD_TOOL_PATH/apktool.jar b -o $UNSIGNED_APK_FILE -p framework $UNZIP_FOLDER
 	if (($?)); then
 		exit 1
 	else
@@ -459,6 +492,7 @@ RELEASE=false
 OUTPUT=''
 NO_UNITYBUILD=false
 PUBLISH_APPSTORE=false
+BUILD_APPBUNDLE=false
 ###################################################################################
 function usage()
 {
@@ -476,10 +510,11 @@ echo -e "The following options are available:
 -r, --release\t\toptional, unity build with release mode, without development mode. default false 
 --no-unitybuild\t\toptional, not build unity project and use last build result for packaging when set. default false
 --publish-appstore\t\toptional, build ipa and upload to itunes connect
+--build-appbundle\t\toptional, android build app bundle file instead of apk file
 "
 exit 0
 }
-args=`getopt -u -o hc:b:o: -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild,publish-appstore -n 'unitybuild' -- $*`
+args=`getopt -u -o hc:b:o: -l help,channels:,version-name:,version-code:,unity-project:,branch:,output:,git-rev:,svn-rev:,release,no-unitybuild,publish-appstore,build-appbundle -n 'unitybuild' -- $*`
 if (($?)); then exit -1; fi
 set -- $args
 
@@ -521,6 +556,9 @@ do
             shift 1;;
         --publish-appstore)
 			PUBLISH_APPSTORE=true
+            shift 1;;
+        --build-appbundle)
+			BUILD_APPBUNDLE=true
             shift 1;;
         --)
 			shift; break;;
@@ -698,7 +736,9 @@ function svnCheckoutBranch()
 	svn info
 }
 ###################################################################################
-
+if $BUILD_APPBUNDLE; then
+	PLATFORM_BUILD_FILENAME["android"]="client.aab"
+fi
 currrent_pwd=`pwd`
 # Git
 cd $UNITY_PROJECT
@@ -786,6 +826,9 @@ for p in ${!PLATFORM_PREFIX[@]}; do
 				args="Dev=False;Path=$target_build_path"
 			else
 				args="Dev=True;Path=$target_build_path"
+			fi
+			if $BUILD_APPBUNDLE && [[ $p == 'android' ]]; then
+				args+=";BuildAppBundle=True"
 			fi
 			Unity -batchmode -nographics -quit -logFile -projectPath $UNITY_PROJECT -executeMethod Build.${PLATFORM_BUILD_METHOD[$p]} -CustomArgs $args
 			if (($?)); then
