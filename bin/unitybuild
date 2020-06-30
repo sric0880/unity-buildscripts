@@ -302,7 +302,6 @@ function pack-android()
 	TARGET_APK_FILE=${PRODUCT_NAME}_${CHANNEL_NAME}_${VERSION_NAME}_${VERSION_CODE}
 	SIGNED_APK_FILE=build/${TARGET_APK_FILE}.apk
 	UNSIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned.apk
-	UNSIGNED_AAB_FILE=build/${TARGET_APK_FILE}_unsigned.aab
 	UNSIGNED_ALIGNED_APK_FILE=build/${TARGET_APK_FILE}_unsigned_aligned.apk
 	UNZIP_FOLDER=build/$TARGET_APK_FILE
 	if [ ! -d $OUTPUT ]; then
@@ -315,6 +314,7 @@ function pack-android()
 	fi
 
 	if $BUILD_APPBUNDLE; then
+		SIGNED_AAB_FILE=build/${TARGET_APK_FILE}.aab
 		##1. unzip aab
 		mkdir $UNZIP_FOLDER
 		unzip $SOURCE_APK_FILE -d $UNZIP_FOLDER
@@ -328,19 +328,29 @@ function pack-android()
 		cd $current_path
 		rm -rf $UNZIP_FOLDER
 
-		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-bundle --modules build/base.zip --output $UNSIGNED_AAB_FILE
+		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-bundle --modules build/base.zip --output $SIGNED_AAB_FILE
 		if (($?)); then exit 1; fi
 		rm build/base.zip
-		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar validate --bundle $UNSIGNED_AAB_FILE
+		java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar validate --bundle $SIGNED_AAB_FILE
 		if (($?)); then exit 1; fi
 
+		##4. sign apk
+		echo "start aab signer"
+		jarsigner -keystore $KEYSTORE_FILE -storepass:env KEYSTORE_PWD -keypass:env KEY_PWD $SIGNED_AAB_FILE $ALIAS
+		if (($?)); then
+			exit 1
+		else
+			jarsigner -verify -keystore $KEYSTORE_FILE $SIGNED_AAB_FILE $ALIAS
+			if (($?)); then exit 1; fi
+			mv $SIGNED_AAB_FILE $OUTPUT
+		fi
+
 		# APKS_FILE=${SIGNED_APK_FILE}s
-		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-apks --bundle=$UNSIGNED_AAB_FILE --output=$APKS_FILE --ks $KEYSTORE_FILE --ks-pass pass:$KEYSTORE_PWD --ks-key-alias $ALIAS --key-pass pass:$KEY_PWD
+		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar build-apks --bundle=$SIGNED_AAB_FILE --output=$APKS_FILE --ks $KEYSTORE_FILE --ks-pass pass:$KEYSTORE_PWD --ks-key-alias $ALIAS --key-pass pass:$KEY_PWD
 		# if (($?)); then exit 1; fi
 		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar get-size total --apks=$APKS_FILE
 		# java -jar $UNITYBUILD_TOOL_PATH/bundletool-all-1.0.0.jar extract-apks --apks=$APKS_FILE --output-dir=${APKS_FILE}.extract --device-spec=device-spec.json
 		# if (($?)); then exit 1; fi
-		echo "no need to pack android when building app bundle"
 		exit 0
 	fi
 
