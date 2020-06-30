@@ -12,5 +12,5 @@ setup(name='unitybuild',
       author_email='justgotpaid88@qq.com',
       license='MIT',
       packages=['resources_workflow'],
-      data_files=[('/usr/local/unitybuild-tool', ['bin/apktool.jar', 'bin/bundletool-all-1.0.0.jar'])],
+      data_files=[('/usr/local/unitybuild-tool', ['bin/apktool.jar', 'bin/bundletool-all-1.0.0.jar', 'bin/Resources.proto', 'bin/Configuration.proto'])],
       zip_safe=False)

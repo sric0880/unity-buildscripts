@@ -291,6 +291,30 @@ function pack-ios()
 	fi
 }
 ###################################################################################
+function change_aab_version()
+{
+	UNZIP_FOLDER=$1
+	VERSION_NAME=$2
+	VERSION_CODE=$3
+	echo "Decoding AndroidManifest.xml"
+	protoc --decode=aapt.pb.XmlNode --proto_path=$UNITYBUILD_TOOL_PATH Configuration.proto Resources.proto < $UNZIP_FOLDER/base/manifest/AndroidManifest.xml > AndroidManifest_temp.xml
+	if (($?)); then exit 1; fi
+
+	echo "Change version code to $VERSION_CODE"
+	REGEX=`echo 's/(.*[vV]ersionCode"\\n.*")[0-9]+("\\n)((?:.*\\n)*?)(.*int_decimal_value: )[0-9]+/$1 . '$VERSION_CODE' . $2 . $3 . $4 . '$VERSION_CODE'/eg'`
+	perl -0777 -i.bak -pe "$REGEX" AndroidManifest_temp.xml
+
+	echo "CChange version name to $VERSION_NAME"
+	REGEX=`echo 's/(.*[vV]+ersionName"\\n.*value: )"[0-9\.]+"/\1"'$VERSION_NAME'"/g'`
+	perl -0777 -i.bak -pe "$REGEX" AndroidManifest_temp.xml
+	rm AndroidManifest_temp.xml.bak
+
+	echo "Encoding edited AndroidManifest.xml"
+	rm -f $UNZIP_FOLDER/base/manifest/AndroidManifest.xml
+	protoc --encode=aapt.pb.XmlNode --proto_path=$UNITYBUILD_TOOL_PATH Configuration.proto Resources.proto < AndroidManifest_temp.xml > $UNZIP_FOLDER/base/manifest/AndroidManifest.xml
+	if (($?)); then exit 1; fi
+	rm -f AndroidManifest_temp.xml
+}
 function pack-android()
 {
 	SOURCE_APK_FILE=$1
@@ -318,6 +342,10 @@ function pack-android()
 		##1. unzip aab
 		mkdir $UNZIP_FOLDER
 		unzip $SOURCE_APK_FILE -d $UNZIP_FOLDER
+		##2. change version name and version code
+		### 参考这段代码
+		### https://gist.github.com/Farious/e841ef85a8f4280e4f248ba8037ea2c0
+		change_aab_version $UNZIP_FOLDER $VERSION_NAME $VERSION_CODE
 		##2. resources
 		resources_workflow android $RESOURCES $UNZIP_FOLDER/base/assets $CHANNEL_NAME $UNITY_PROJECT
 		if (($?)); then exit 1; fi
